@@ -1,0 +1,136 @@
+---
+title: "Code Through for Prophet R Package"
+author: "Jason Sills"
+date: "`r format(Sys.time(), '%10 %09, %2020')`"
+output:
+  html_document:
+    df_print: paged
+    theme: flatly
+    highlight: haddock
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE,
+                      message=FALSE,
+                      warning=FALSE)
+setwd("C:/Users/Jason Sills/Desktop")
+dat <- read.csv("Prophet_Test_Data.csv", fileEncoding = 'UTF-8-BOM')
+```
+
+# Powerful forecasting with ease: An Introduction to the Prophet package
+<br>
+Forecasting is an important topic for all data scientists across industries and sectors. Regardless of where you work you will likely have numerous projects requiring forecasting. In business, data scientists forecast revenue, inventory levels, and units sold. In the public sector nonprofits have donations, utilization, and often inventory. For example, food banks will need to forecast in-kind food donations for the coming year, museums will need to forecast attendance, and parks departments will need to forecast utilization. In forecasting there are two major sources of variability: 1) seasonality, and 2) holidays. Food bank donations will fluctuate throughout the year with donations perhaps increasing with holidays. Museums will see ebbs and flows in attendance depending on the time of year. Park use will increase with warmer weather. Time series data is often highly seasonal and major changes around holidays. How can we easily forecast using time series data and account for seasonality and holiday effects? Answer: The R package Prophet. 
+
+<br>
+
+# What is Prophet and what makes it so powerful? 
+<br>
+Prophet is a forecasting tool created by Facebook for both R and Python. The Facebook GitHub page describes Prophet as, "... a procedure for forecasting time series data based on an additive model where non-linear trends are fit with yearly, weekly, and daily seasonality, plus holiday effects. It works best with time series that have strong seasonal effects and several seasons of historical data. Prophet is robust to missing data and shifts in the trend, and typically handles outliers well." You can read more about Prophet on [Facebook's GitHub Prophet site](https://facebook.github.io/prophet/) and a more detailed report [here](https://peerj.com/preprints/3190/).
+
+Loading Prophet is easy, just load it like any other R package. 
+```{r eval=FALSE}
+
+install.packages("prophet")
+library(prophet)
+```
+
+
+# Dataframe structure
+<br>
+It's important to note how your data needs to be constructed for Prophet to analyze it. Prophet is analyzed primarily on a dataframe of two variables: 1) a datestamp, or , for the date; and 2) y for the predicted variable. The ds column must be in the form of YYYY-MM-DD for a date or YYYY-MM-DD HH:MM:SS for a timestamp. Facebook has sample data [here](https://github.com/facebook/prophet/tree/master/examples). I've chosen to use Facebook's sample data [example_retail_sales.csv](https://github.com/facebook/prophet/blob/master/examples/example_retail_sales.csv). Below you can see the first and final six rows of the data:
+
+```{r}
+
+head(dat)
+
+tail(dat)
+
+```
+
+
+# Setting up Prophet forecast
+<br>
+First, we need to use the prophet function to create the historical dataframe. I'm calling this hd, but generally it is called simply "m".I think hd for historical dataframe is easier for instruciton. 
+
+Second, create a forecast object using the make_future_dataframe function. In the arguments of the function reference hd, and set the number of periods you want to forecast. I'm choosing 365 for 365 days. Note the dates. These are 365 days out from the final 6 rows above. 
+```{r}
+library(prophet)
+##Step 1: Set the historical dataframe
+hd <- prophet(dat)
+##Step 2: Create the forecast
+future <- make_future_dataframe(hd, periods = 365)
+##
+tail(future)
+```
+
+# Forecasting 
+<br>
+Now we use the predict function in R to create the forecast. Next, we plot the data using the plot function. The blue line without black dots is our forecast. 
+
+```{r}
+forecast <- predict(hd, future)
+plot(hd, forecast)
+```
+
+# Explore more with Prophet Plot Components 
+<br>
+The function prophet_plot_components allows you to see graphs with focused on specific aspects of the analysis. For example, below you can see how the months fluctuate on average throughout an average year. 
+```{r}
+prophet_plot_components(hd, forecast)
+```
+
+# Holidays 
+<br>
+Adding in holidays can improve your forecasting.This allows you to explore how set holidays impacted your analysis. You can also create your own holidys or events. In the package holidays from across the world are available. Each country has a host of holidays. Looking at the tail we can see that country ZA, or South Africa, has holidays entered all the way out to 06/16/2044. 
+```{r}
+tail(generated_holidays)
+```
+
+It's very possible that we will want to add special holidays or events not in the holiday data. Let's model out Black Friday and see what happens to sales. 
+
+```{r}
+library(dplyr)
+black_friday <- data_frame(
+  holiday = 'blackfriday',
+  ds = as.Date(c('2008-11-28', '2009-11-27', '2010-11-26',
+                 '2011-11-25', '2012-11-22', '2013-11-29',
+                 '2014-11-28', '2015-11-27', '2016-11-24',
+                 '2017-02-24')),
+)
+
+holidays <- black_friday
+hdbf <- prophet(dat, holidays = holidays)
+future <- make_future_dataframe(hdbf, periods = 365)
+forecast <- predict(hdbf, future)
+plot(hdbf, forecast)
+prophet_plot_components(hdbf, forecast)
+```
+We don't see any impact from Black Friday. What about other US holidays that were included in the analysis? What was there impact? 
+
+
+```{r}
+hdh <- prophet(holidays = holidays)
+hdh <- add_country_holidays(hdh, country_name = 'US')
+hdh <- fit.prophet(hdh, dat)
+hdh$train.holiday.names
+```
+
+```{r}
+forecast <- predict(hdh, future)
+plot(hdh, forecast)
+prophet_plot_components(hdh, forecast)
+```
+
+
+# Summary and Sources
+<br>
+
+Prophet is a powerful tool for forecasting. Forecasting is often a difficult task, especially at the day level. Prophet allows the data scientist to tackle forecasting with greater ease. This code through has introduced you to the basics of Prophet, but the package has a lot more to offer. Below are a list of sources for exploring Prophet. These sources were used to by the author to learn Prophet and provided frameworks to create this code through. 
+
+[Facebook Quick Start Guide](https://facebook.github.io/prophet/docs/quick_start.html)
+[CRAN Page](https://cran.r-project.org/web/packages/prophet/index.html)
+[R Documentation listing functions - very valuable!](https://www.rdocumentation.org/packages/prophet/versions/0.6.1)
+[Lyla, Y. 2019, Jan 2. A Quick Start of Time Series Forecasting with a Practical Example using FB Prophet. Towards Data Science](https://towardsdatascience.com/a-quick-start-of-time-series-forecasting-with-a-practical-example-using-fb-prophet-31c4447a2274)
+[Raferty, G. 2019, Nov 25. Forecasting in Python with Facebook Prophet. Towards Data Science](https://towardsdatascience.com/forecasting-in-python-with-facebook-prophet-29810eb57e66)
